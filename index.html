@@ -595,6 +595,7 @@
                 <p class="text-xs text-slate-400">
                     المستوى الرابع — شعبة نظم معلومات الأعمال | منصة عبدالرحمن داهش
                 </p>
+                <p id="fb-status" class="text-xs text-slate-500">جاري الاتصال بقاعدة البيانات...</p>
                 <p class="text-xs text-amber-200 pt-1">
                     <i class="fa-brands fa-whatsapp text-emerald-400"></i>
                     للتواصل والاستفسار:
@@ -605,7 +606,7 @@
     </div>
 
     <script>
-        const questionsDB = [
+        let questionsDB = [
             {
                 id: 1, type: 'mcq', chapter: 'ch1',
                 chapterName: 'الفصل الأول: أساسيات تحليلات الأعمال',
@@ -1399,11 +1400,68 @@
             animate();
         }
 
+        // =========================================================================
+        // تطبيق الأسئلة القادمة من Firebase (لو فاضية يفضل الاحتياطي الموجود في الملف)
+        // =========================================================================
+        window.applyRemoteQuestions = function (list) {
+            if (!Array.isArray(list) || list.length === 0) return false;
+            questionsDB = list;
+            if (currentMode === 'quiz' || currentMode === 'review') {
+                startQuizWithFilter(currentFilter);
+                if (currentMode === 'review') switchMode('review');
+            } else {
+                activeQuestions = [...questionsDB];
+            }
+            return true;
+        };
+
+        window.setFirebaseStatus = function (ok, msg) {
+            const el = document.getElementById('fb-status');
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'text-xs ' + (ok ? 'text-emerald-400' : 'text-slate-500');
+        };
+
         window.onload = function () {
             initFallingDataAnimation();
             init3DTilt();
             switchMode('home');
         };
+    </script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOVWSPE5oycIpsaau5KS2C0q9Brzwx2Dw",
+            authDomain: "business-analytics-c98ad.firebaseapp.com",
+            projectId: "business-analytics-c98ad",
+            storageBucket: "business-analytics-c98ad.firebasestorage.app",
+            messagingSenderId: "808777165739",
+            appId: "1:808777165739:web:5ebbe2c1a0de3462b880ee"
+        };
+
+        async function loadQuestionsFromFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                const snap = await getDocs(collection(db, "questions"));
+                const list = [];
+                snap.forEach(d => list.push(d.data()));
+                list.sort((a, b) => (a.id || 0) - (b.id || 0));
+
+                if (list.length > 0 && window.applyRemoteQuestions(list)) {
+                    window.setFirebaseStatus(true, "متصل بقاعدة البيانات ✓ (" + list.length + " سؤال)");
+                } else {
+                    window.setFirebaseStatus(true, "متصل بقاعدة البيانات ✓ (يعمل بالأسئلة المدمجة حالياً)");
+                }
+            } catch (err) {
+                console.error("Firebase error:", err);
+                window.setFirebaseStatus(false, "تعذر الاتصال بقاعدة البيانات، يعمل بالأسئلة المدمجة");
+            }
+        }
+
+        window.addEventListener("load", loadQuestionsFromFirebase);
     </script>
 </body>
 </html>
